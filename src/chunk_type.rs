@@ -1,12 +1,12 @@
 #[derive(PartialEq, Eq, Debug)]
-struct ChunkType([u8; 4]);
+pub struct ChunkType([u8; 4]);
 
 impl ChunkType {
-    fn bytes(&self) -> [u8; 4] {
+    pub fn bytes(&self) -> [u8; 4] {
         self.0
     }
 
-    fn is_valid(&self) -> bool {
+    pub fn is_valid(&self) -> bool {
         if let false = self.is_reserved_bit_valid() {
             return false;
         }
@@ -15,19 +15,19 @@ impl ChunkType {
             .all(|byte| (65..=90).contains(byte) || (97..=122).contains(byte))
     }
 
-    fn is_critical(&self) -> bool {
+    pub fn is_critical(&self) -> bool {
         is_upper(self.0[0])
     }
 
-    fn is_public(&self) -> bool {
+    pub fn is_public(&self) -> bool {
         is_upper(self.0[1])
     }
 
-    fn is_reserved_bit_valid(&self) -> bool {
+    pub fn is_reserved_bit_valid(&self) -> bool {
         is_upper(self.0[2])
     }
 
-    fn is_safe_to_copy(&self) -> bool {
+    pub fn is_safe_to_copy(&self) -> bool {
         !is_upper(self.0[3])
     }
 }
