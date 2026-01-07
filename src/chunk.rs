@@ -1,5 +1,6 @@
 use crate::chunk_type::ChunkType;
 
+#[derive(Debug, Clone)]
 pub struct Chunk {
     chunk_type: ChunkType,
     data: Vec<u8>
@@ -34,7 +35,8 @@ impl Chunk {
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
-        self.data.to_vec()
+        let mut byte_str = self.length().to_be_bytes().to_vec();
+        byte_str.concat()
     }
 }
 
@@ -59,20 +61,7 @@ impl TryFrom<&[u8]> for Chunk {
                 Ok(raw_type) => {
                     let chunk_type = ChunkType::try_from(raw_type)
                         .map_err(|e| Box::new(ChunkParseError { message: format!("invalid chunk type: {e}")}))?;
-                    let exp_byte_len = size_of::<usize>();
-                    let mut length = length.to_vec();
-                    if length.len() != exp_byte_len {
-                        if exp_byte_len > length.len() {
-                            let mut new_l = vec![0u8, 0, 0, 0];
-                            new_l.extend(length);
-                            length = new_l;
-                        } else {
-                            panic!("running on a 16bit system lol");
-                        }
-                    }
-                    let length = length.try_into()
-                        .map_err(|e| Box::new(ChunkParseError { message: format!("invalid length: {e:?}")}))?; 
-                    let length = usize::from_be_bytes(length);
+                    let length = calculate_chunk_length(&length).map_err(|e| Box::new(ChunkParseError { message: "invalid length".into()}))?;
                     let chunk = Chunk::new(chunk_type, raw_data[..length].to_vec());
                     let checksum = u32::from_be_bytes(raw_data[length..].try_into()
                         .map_err(|e| Box::new(ChunkParseError { message: format!("invalid checksum length: {e}")}))?);
@@ -88,6 +77,23 @@ impl TryFrom<&[u8]> for Chunk {
             Err(Box::new(ChunkParseError { message: format!("{value:?} is an invalid chunk: too short") }))
         }
     }
+}
+
+pub fn calculate_chunk_length(length_bytes: &[u8]) -> Result<usize, <[u8; 4] as TryFrom<Vec<u8>>>::Error> {
+    let exp_byte_len = size_of::<usize>();
+    let mut length = length_bytes.to_vec();
+    if length.len() != exp_byte_len {
+        if exp_byte_len > length.len() {
+            let mut new_l = vec![0u8, 0, 0, 0];
+            new_l.extend(length);
+            length = new_l;
+        } else {
+            panic!("running on a 16bit system lol");
+        }
+    }
+    let length = length.try_into()?;
+    let length = usize::from_be_bytes(length);
+    Ok(length)
 }
 
 impl std::fmt::Display for Chunk {

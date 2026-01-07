@@ -1,21 +1,94 @@
-use crate::{chunk::Chunk, error::Result};
+use std::str::FromStr;
 
-pub struct Png {}
+use crate::{chunk::{calculate_chunk_length, Chunk}, chunk_type::ChunkType, error::Result};
+
+pub struct Png {
+    chunks: Vec<Chunk>,
+}
 
 impl Png {
-    fn from_chunks(chunks: Vec<Chunk>) -> Png {}
+    pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
     
-    fn append_chunk(&mut self, chunk: Chunk) {}
+    fn from_chunks(chunks: Vec<Chunk>) -> Png {
+        Png { chunks }
+    }
     
-    fn remove_first_chunk(&mut self, chunk_type: &str) -> Result<Chunk> {}
+    fn append_chunk(&mut self, chunk: Chunk) {
+        self.chunks.push(chunk);
+    }
     
-    fn header(&self) -> &[u8; 8] {}
+    fn remove_first_chunk(&mut self, chunk_type: &str) -> Result<Chunk> {
+        let mut index = None;
+        for (i, chunk) in self.chunks.iter().enumerate() {
+            if chunk.chunk_type() == &ChunkType::from_str(chunk_type)? {
+                index = Some(i);
+                break;
+            }
+        }
+        match index {
+            Some(i) => {
+                let chunk = self.chunks.remove(i);
+                Ok(chunk)
+            },
+            None => Err(Box::new(PngParseError { message: format!("chunk {chunk_type} does not exist")}))
+        }
+    }
     
-    fn chunks(&self) -> &[Chunk] {}
+    fn header(&self) -> &[u8; 8] {
+        &Self::STANDARD_HEADER
+    }
     
-    fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {}
+    fn chunks(&self) -> &[Chunk] {
+        self.chunks.as_slice()
+    }
     
-    fn as_bytes(&self) -> Vec<u8> {}
+    fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
+        for chunk in self.chunks.iter() {
+            if chunk.chunk_type() == &ChunkType::from_str(chunk_type).expect("invalid chunk type str") {
+                return Some(&chunk);
+            }
+        }
+        None
+    }
+    
+    fn as_bytes(&self) -> Vec<u8> {
+        Self::STANDARD_HEADER.into_iter().chain(self.chunks.iter().map(Chunk::as_bytes).flatten()).collect()
+    }
+}
+
+#[derive(Debug)]
+pub struct PngParseError { message: String }
+impl std::error::Error for PngParseError {}
+impl std::fmt::Display for PngParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl TryFrom<&[u8]> for Png {
+    type Error = Box<PngParseError>;
+
+    fn try_from(value: &[u8]) -> std::result::Result<Self, Self::Error> {
+        let (header, mut raw_chunks) = value.split_at_checked(8).ok_or(Box::new(PngParseError { message: "not enough bytes to find header!".into()}))?;
+        if header != Self::STANDARD_HEADER.as_slice() {
+            return Err(Box::new(PngParseError { message: format!("invalid png header: {header:?}")}));
+        }
+        let mut chunks = vec![];
+        while !dbg!(raw_chunks).is_empty() {
+            let (length, rest) = raw_chunks.split_at_checked(4).ok_or(Box::new(PngParseError { message: format!("not enough bytes for chunk {}'s length", chunks.len()) }))?;
+            let length = calculate_chunk_length(length).map_err(|e| Box::new(PngParseError { message: format!("{e:?}") }))?;
+            let (chunk, rest) = rest.split_at_checked(length + 4).ok_or(Box::new(PngParseError { message: format!("not enough bytes for chunk {}", chunks.len()) }))?;
+            chunks.push(Chunk::try_from(chunk).map_err(|e| Box::new(PngParseError { message: format!("{e}")}))?);
+            raw_chunks = rest;
+        }
+        Ok(Png::from_chunks(chunks))
+    }
+}
+
+impl std::fmt::Display for Png {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.chunks)
+    }
 }
 
 #[cfg(test)]
