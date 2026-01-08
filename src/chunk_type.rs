@@ -16,7 +16,7 @@ impl ChunkType {
     pub fn bytes(&self) -> [u8; 4] {
         self.0
     }
-    
+
     fn is_valid(&self) -> bool {
         self.is_reserved_bit_valid()
     }
@@ -24,15 +24,15 @@ impl ChunkType {
     fn is_critical(&self) -> bool {
         self.0[0] & 32 == 0
     }
-    
+
     fn is_public(&self) -> bool {
         self.0[1] & 32 == 0
     }
-    
+
     fn is_reserved_bit_valid(&self) -> bool {
         self.0[2] & 32 == 0
     }
-    
+
     fn is_safe_to_copy(&self) -> bool {
         self.0[3] & 32 == 32
     }
@@ -40,7 +40,7 @@ impl ChunkType {
 
 #[derive(Debug)]
 pub struct ChunkTypeParseError {
-    message: String
+    message: String,
 }
 
 impl std::error::Error for ChunkTypeParseError {}
@@ -49,14 +49,16 @@ impl Display for ChunkTypeParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.message)
     }
-} 
+}
 
 impl TryFrom<[u8; 4]> for ChunkType {
     type Error = Box<ChunkTypeParseError>;
 
     fn try_from(value: [u8; 4]) -> Result<Self, Self::Error> {
         if value.iter().any(|b| !b.is_ascii_alphabetic()) {
-            Err(Box::new(ChunkTypeParseError { message: format!("{value:?} contains non-alphabetic bytes") }))
+            Err(Box::new(ChunkTypeParseError {
+                message: format!("{value:?} contains non-alphabetic bytes"),
+            }))
         } else {
             Ok(ChunkType(value))
         }
@@ -74,8 +76,10 @@ impl FromStr for ChunkType {
                     b[i] = ch;
                 }
                 ChunkType::try_from(b)
-            },
-            _ => Err(Box::new(ChunkTypeParseError { message: format!("string to parse into Chunk must be 4 bytes, got {s}") }))
+            }
+            _ => Err(Box::new(ChunkTypeParseError {
+                message: format!("string to parse into Chunk must be 4 bytes, got {s}"),
+            })),
         }
     }
 }
@@ -185,5 +189,3 @@ mod tests {
         let _are_chunks_equal = chunk_type_1 == chunk_type_2;
     }
 }
-
-

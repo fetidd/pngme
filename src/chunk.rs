@@ -38,10 +38,14 @@ impl Chunk {
     }
 
     pub fn as_bytes(&self) -> Vec<u8> {
-        let mut byte_str = self.length().to_be_bytes().to_vec();
-        byte_str.extend_from_slice(self.data());
-        byte_str.extend_from_slice(self.crc().to_be_bytes().as_slice());
-        byte_str
+        (self.length() as u32)
+            .to_be_bytes()
+            .iter()
+            .chain(self.chunk_type.bytes().iter())
+            .chain(self.data().iter())
+            .chain(self.crc().to_be_bytes().iter())
+            .copied()
+            .collect()
     }
 }
 
@@ -61,7 +65,8 @@ impl std::fmt::Display for ChunkParseError {
 impl TryFrom<&[u8]> for Chunk {
     type Error = Box<ChunkParseError>;
 
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(mut value: &[u8]) -> Result<Self, Self::Error> {
+        value = &value[4..];
         if let Some((raw_type, raw_data)) = value.split_at_checked(4) {
             match TryInto::<[u8; 4]>::try_into(raw_type) {
                 Ok(raw_type) => {

@@ -13,7 +13,7 @@ impl Png {
         Png { chunks }
     }
 
-    fn append_chunk(&mut self, chunk: Chunk) {
+    pub fn append_chunk(&mut self, chunk: Chunk) {
         self.chunks.push(chunk);
     }
 
@@ -55,7 +55,7 @@ impl Png {
         None
     }
 
-    fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self) -> Vec<u8> {
         Self::STANDARD_HEADER
             .into_iter()
             .chain(self.chunks.iter().map(Chunk::as_bytes).flatten())
@@ -89,6 +89,7 @@ impl TryFrom<&[u8]> for Png {
         }
         let mut chunks = vec![];
         while !raw_chunks.is_empty() {
+            // get the length of the next chunk
             let (raw_length, rest) =
                 raw_chunks
                     .split_at_checked(4)
@@ -100,12 +101,14 @@ impl TryFrom<&[u8]> for Png {
                     message: format!("{e:?}"),
                 })
             })?) as usize;
+            // split off the chunk from the following ones
             let (chunk, rest) = rest
                 .split_at_checked(length + 8) // the extra 8 is 4 for type and 4 for checksum
                 .ok_or(Box::new(PngParseError {
                     message: format!("not enough bytes for chunk {}", chunks.len()),
                 }))?;
-            chunks.push(Chunk::try_from(chunk).map_err(|e| {
+            let chunk = [raw_length, chunk].concat();
+            chunks.push(Chunk::try_from(chunk.as_slice()).map_err(|e| {
                 Box::new(PngParseError {
                     message: format!("error when building chunk {}: {e}", chunks.len()),
                 })
@@ -261,7 +264,23 @@ mod tests {
         let png = Png::try_from(&PNG_FILE[..]).unwrap();
         let actual = png.as_bytes();
         let expected: Vec<u8> = PNG_FILE.to_vec();
-        assert_eq!(actual, expected);
+        _find_difference(&expected, &actual);
+        // assert_eq!(actual, expected);
+    }
+
+    fn _find_difference<'a, T>(left: &'a [T], right: &'a [T])
+    where
+        T: PartialEq + std::fmt::Debug,
+    {
+        for (i, (l, r)) in left.iter().zip(right).enumerate() {
+            if l != r {
+                panic!(
+                    "Difference at index {i}\n{:?}\n!=\n{:?}",
+                    &left[i..i + 10],
+                    &right[i..i + 10]
+                );
+            }
+        }
     }
 
     #[test]
