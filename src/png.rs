@@ -17,7 +17,7 @@ impl Png {
         self.chunks.push(chunk);
     }
 
-    fn remove_first_chunk(&mut self, chunk_type: &str) -> Result<Chunk> {
+    pub fn remove_first_chunk(&mut self, chunk_type: &str) -> Result<Chunk> {
         let mut index = None;
         for (i, chunk) in self.chunks.iter().enumerate() {
             if chunk.chunk_type() == &ChunkType::from_str(chunk_type)? {
@@ -44,7 +44,7 @@ impl Png {
         self.chunks.as_slice()
     }
 
-    fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
+    pub fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
         for chunk in self.chunks.iter() {
             if chunk.chunk_type()
                 == &ChunkType::from_str(chunk_type).expect("invalid chunk type str")

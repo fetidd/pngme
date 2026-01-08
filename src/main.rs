@@ -31,10 +31,20 @@ fn encode(args: EncodeArgs) -> Result<()> {
 }
 
 fn decode(args: DecodeArgs) -> Result<()> {
+    let DecodeArgs { path, chunk_type } = args;
+    let png = create_png(&path)?;
+    let chunk = png.chunk_by_type(&chunk_type);
+    if let Some(chunk) = chunk {
+        println!("{chunk}");
+    }
     Ok(())
 }
 
 fn remove(args: RemoveArgs) -> Result<()> {
+    let RemoveArgs { path, chunk_type } = args;
+    let mut png = create_png(&path)?;
+    png.remove_first_chunk(&chunk_type)?;
+    std::fs::write(path, png.as_bytes())?;
     Ok(())
 }
 
